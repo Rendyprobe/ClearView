@@ -282,6 +282,26 @@
 
 <hr />
 
+<!-- ── SCENARIO 11 & 12: Popunder vs Legitimate Navigation Test ─── -->
+<h2>Scenario 11 &amp; 12 — Popunder vs Legitimate Navigation</h2>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:700px;margin-top:12px;">
+  <p style="color:#fff;margin-bottom:12px;font-weight:600;">Test Opening New Tabs:</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <button class="ctrl" style="border-color:var(--red);color:var(--red);" onclick="triggerAdPopunder()">
+      ❌ Test 11: Trigger Ad Popunder (Should Be Blocked)
+    </button>
+    <a href="https://github.com/Rendyprobe/ClearView" target="_blank" class="ctrl" style="text-decoration:none;display:inline-block;border-color:var(--green);color:var(--green);">
+      ✅ Test 12: Legitimate Link (Should Open Cleanly)
+    </a>
+    <button class="ctrl" style="border-color:var(--cyan);color:var(--cyan);" onclick="window.open('https://accounts.google.com', '_blank')">
+      ✅ Test 13: OAuth Login (Should Open Cleanly)
+    </button>
+  </div>
+  <p id="popup-test-log" style="margin-top:14px;font-size:12px;color:var(--cyan);"></p>
+</div>
+
+<hr />
+
 <p style="margin-top:20px;font-size:12px;color:var(--muted);">
   Overlays above are injected and controlled by the buttons at the top of the page.
   Run the ClearView scan from the extension popup to see detection results.
@@ -388,6 +408,28 @@
   function stopReinsert() {
     if (reinsertTimer) { clearInterval(reinsertTimer); reinsertTimer = null; }
   }
+
+  // Scenario 11: Trigger Ad Popunder simulation
+  function triggerAdPopunder() {
+    const log = document.getElementById('popup-test-log');
+    if (log) log.textContent = 'Calling window.open("https://adclick-network.com/redirect", "_blank")...';
+    try {
+      const res = window.open('https://adclick-network.com/redirect', '_blank');
+      if (res === null) {
+        if (log) log.textContent = '🛡️ Blocked! window.open returned null (ClearView blocked popup).';
+      } else {
+        if (log) log.textContent = '⚠️ Opened new window (Extension may be disabled or URL allowed).';
+      }
+    } catch (e) {
+      if (log) log.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // Listen for clearview ad-popup-blocked event
+  window.addEventListener('clearview:ad-popup-blocked', (e) => {
+    const log = document.getElementById('popup-test-log');
+    if (log) log.textContent = `🛡️ ClearView Intercepted Popunder! Reason: ${e.detail.reason} (URL: ${e.detail.url || 'blank'})`;
+  });
 
   // Lock body scroll (tests Scenario 1 side effect)
   document.getElementById('test-adblock-modal').addEventListener('mouseenter', () => {

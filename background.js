@@ -24,7 +24,8 @@ const DEFAULT_SETTINGS = {
   ],
   language: 'en',
   maxLogEntries: 200,
-  undoHistorySize: 10
+  undoHistorySize: 10,
+  blockPopups: true               // Intelligently block hijacked ad-tabs/popunders
 };
 
 // ─── Installation / Startup ──────────────────────────────────────────────────
@@ -185,4 +186,72 @@ async function notifyAllTabs(message) {
     chrome.tabs.sendMessage(tab.id, message).catch(() => {});
   }
 }
+
+// ─── Intelligent New-Tab / Popunder Interception ──────────────────────────────
+
+const AD_SUSPICIOUS_URL_PATTERNS = [
+  /ad[\s_.-]?(?:click|server|traffic|network|rotator|redirect|gateway|zone|link)/i,
+  /pop[\s_.-]?(?:under|up|cash|ads)/i,
+  /(?:bet|casino|gambling|porn|tracker|affiliate|trk|syndication)/i,
+  /(?:doubleclick\.net|googlesyndication\.com|adnxs\.com|propellerads\.com|exoclick\.com)/i
+];
+
+chrome.tabs.onCreated.addListener(async (newTab) => {
+  try {
+    const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
+    if (!settings.enabled || settings.blockPopups === false) return;
+
+    // Check if opened by another tab
+    if (!newTab.openerTabId) return;
+
+    const openerTab = await chrome.tabs.get(newTab.openerTabId).catch(() => null);
+    if (!openerTab || !openerTab.url || !openerTab.url.startsWith('http')) return;
+
+    // Skip if opener domain is allowlisted
+    const openerDomain = new URL(openerTab.url).hostname.replace(/^www\./, '');
+    const isAllowlisted = (settings.allowlist || []).some(d => {
+      const clean = d.replace(/^www\./, '');
+      return openerDomain === clean || openerDomain.endsWith('.' + clean);
+    });
+    if (isAllowlisted) return;
+
+    // Monitor url updates on this new tab
+    const tabId = newTab.id;
+    const urlCheckListener = (updatedTabId, changeInfo) => {
+      if (updatedTabId !== tabId) return;
+      const targetUrl = changeInfo.url;
+      if (!targetUrl) return;
+
+      // Check if target matches ad/popunder suspicious patterns
+      const isSuspicious = AD_SUSPICIOUS_URL_PATTERNS.some(p => p.test(targetUrl));
+      if (isSuspicious) {
+        chrome.tabs.remove(tabId).catch(() => {});
+        chrome.tabs.onUpdated.removeListener(urlCheckListener);
+
+        // Notify opener tab to increment blocked count & badge
+        chrome.tabs.sendMessage(newTab.openerTabId, {
+          type: 'POPUP_TAB_BLOCKED',
+          blockedUrl: targetUrl
+        }).catch(() => {});
+
+        appendLog({
+          type: 'blocked_tab',
+          domain: openerDomain,
+          url: targetUrl.slice(0, 100),
+          reason: 'Suspicious ad/popunder URL pattern'
+        });
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(urlCheckListener);
+    // Remove listener after 10 seconds if no trigger
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(urlCheckListener);
+    }, 10000);
+
+  } catch (err) {
+    console.error('[ClearView] Error in tab watcher:', err);
+  }
+});
+
 

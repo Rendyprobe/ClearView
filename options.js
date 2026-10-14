@@ -23,7 +23,8 @@ const DEFAULT_SETTINGS = {
   ],
   language: 'en',
   maxLogEntries: 200,
-  undoHistorySize: 10
+  undoHistorySize: 10,
+  blockPopups: true
 };
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -41,6 +42,7 @@ const toggleEnabled        = document.getElementById('toggleEnabled');
 const toggleAutoCleanup    = document.getElementById('toggleAutoCleanup');
 const togglePreviewOnly    = document.getElementById('togglePreviewOnly');
 const toggleMutationObserver = document.getElementById('toggleMutationObserver');
+const toggleBlockPopups    = document.getElementById('toggleBlockPopups');
 const sensitivityRadios    = document.querySelectorAll('input[name="sensitivity"]');
 const undoHistorySize      = document.getElementById('undoHistorySize');
 const maxLogEntries        = document.getElementById('maxLogEntries');
@@ -97,6 +99,7 @@ function renderSettings() {
   toggleAutoCleanup.checked      = settings.autoCleanup;
   togglePreviewOnly.checked      = settings.previewOnly;
   toggleMutationObserver.checked = settings.mutationObserver;
+  if (toggleBlockPopups) toggleBlockPopups.checked = settings.blockPopups ?? true;
   undoHistorySize.value          = settings.undoHistorySize;
   maxLogEntries.value            = settings.maxLogEntries;
   langSelect.value               = settings.language;
@@ -165,6 +168,9 @@ toggleEnabled.addEventListener('change', () => { settings.enabled = toggleEnable
 toggleAutoCleanup.addEventListener('change', () => { settings.autoCleanup = toggleAutoCleanup.checked; markDirty(); });
 togglePreviewOnly.addEventListener('change', () => { settings.previewOnly = togglePreviewOnly.checked; markDirty(); });
 toggleMutationObserver.addEventListener('change', () => { settings.mutationObserver = toggleMutationObserver.checked; markDirty(); });
+if (toggleBlockPopups) {
+  toggleBlockPopups.addEventListener('change', () => { settings.blockPopups = toggleBlockPopups.checked; markDirty(); });
+}
 
 sensitivityRadios.forEach(r => {
   r.addEventListener('change', () => { if (r.checked) { settings.sensitivity = r.value; markDirty(); } });

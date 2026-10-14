@@ -61,7 +61,8 @@
     ],
     language: 'en',
     maxLogEntries: 200,
-    undoHistorySize: 10
+    undoHistorySize: 10,
+    blockPopups: true
   };
 
   // ─── Text Patterns ───────────────────────────────────────────────────────
@@ -628,10 +629,29 @@
         });
         break;
 
+      case 'POPUP_TAB_BLOCKED':
+        removedCount++;
+        updateBadge();
+        sendResponse({ ok: true });
+        break;
+
       default:
         sendResponse({ error: 'unknown message' });
     }
     return false;
+  });
+
+  // Listen for ad-popup-blocked events dispatched by popup-guardian.js (MAIN world)
+  window.addEventListener('clearview:ad-popup-blocked', (e) => {
+    if (!enabled || settings?.blockPopups === false) return;
+    removedCount++;
+    updateBadge();
+    logEvent({
+      type: 'blocked_popup',
+      domain: getCurrentDomain(),
+      reason: e.detail?.reason || 'Ad popup prevented',
+      url: (e.detail?.url || '').slice(0, 100)
+    });
   });
 
   // ─── Initialise ───────────────────────────────────────────────────────────
