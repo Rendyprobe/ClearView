@@ -116,3 +116,4 @@
     return originalWindowOpen.call(this, url, target, features);
   };
 })();
+
