@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearView Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="13" stroke="#00BCD4" stroke-width="2"/>
+        <circle cx="14" cy="14" r="5" stroke="#00BCD4" stroke-width="1.5" fill="rgba(0,188,212,0.1)"/>
+        <circle cx="14" cy="14" r="2" fill="#00BCD4"/>
+        <line x1="14" y1="3" x2="14" y2="8"  stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="20" x2="14" y2="25" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="3"  y1="14" x2="8"  y2="14" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20" y1="14" x2="25" y2="14" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>ClearView</span>
+    </div>
+    <nav class="sidebar-nav" role="navigation" aria-label="Settings sections">
+      <button class="nav-item active" data-tab="general">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M3.1 12.9l1.1-1.1M11.8 4.2l1.1-1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        General
+      </button>
+      <button class="nav-item" data-tab="detection">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Detection
+      </button>
+      <button class="nav-item" data-tab="domains">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><line x1="1.5" y1="7" x2="14.5" y2="7" stroke="currentColor" stroke-width="1.2"/></svg>
+        Domains
+      </button>
+      <button class="nav-item" data-tab="patterns">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h7M3 12h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Patterns
+      </button>
+      <button class="nav-item" data-tab="diagnostics">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 10l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Diagnostics
+      </button>
+      <button class="nav-item" data-tab="about">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><line x1="8" y1="7" x2="8" y2="11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="5" r="0.8" fill="currentColor"/></svg>
+        About
+      </button>
+    </nav>
+    <div class="sidebar-actions">
+      <button class="btn-ghost sidebar-btn" id="btnReset">Reset Defaults</button>
+      <button class="btn-ghost sidebar-btn" id="btnExport">Export JSON</button>
+      <label class="btn-ghost sidebar-btn" style="cursor:pointer;">
+        Import JSON
+        <input type="file" id="importFile" accept=".json" hidden />
+      </label>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="save-bar" id="saveBar" hidden>
+      <span>Unsaved changes</span>
+      <button class="btn-primary" id="btnSave">Save Settings</button>
+    </div>
+
+    <!-- ── Tab: General ─────────────────────────────────────────── -->
+    <section class="tab-panel active" id="tab-general">
+      <h1 class="page-title">General</h1>
+
+      <div class="card">
+        <h2 class="card-title">Extension Status</h2>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="toggleEnabled">Enable ClearView</label>
+            <span class="setting-desc">Master switch. Disabling stops all monitoring and cleanup.</span>
+          </div>
+          <label class="toggle" aria-label="Enable ClearView">
+            <input type="checkbox" id="toggleEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="toggleAutoCleanup">Automatic Cleanup</label>
+            <span class="setting-desc">Automatically remove high-confidence overlays. When disabled, only highlights are shown.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggleAutoCleanup" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="togglePreviewOnly">Preview Mode Only</label>
+            <span class="setting-desc">Highlight detected overlays with a border without removing them.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="togglePreviewOnly" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="toggleMutationObserver">Monitor Dynamic Changes</label>
+            <span class="setting-desc">Use MutationObserver to detect overlays injected after page load (SPA support).</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggleMutationObserver" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Detection Sensitivity</h2>
+        <span class="setting-desc" style="margin-bottom:12px;display:block;">Controls the confidence threshold required before an element is automatically cleaned.</span>
+        <div class="radio-group" role="radiogroup" aria-label="Sensitivity">
+          <label class="radio-card">
+            <input type="radio" name="sensitivity" value="conservative" />
+            <div class="radio-body">
+              <span class="radio-title">Conservative</span>
+              <span class="radio-desc">Only removes very high-confidence overlays. Fewer false positives. May miss subtle cases.</span>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="sensitivity" value="balanced" />
+            <div class="radio-body">
+              <span class="radio-title">Balanced <span class="badge">Recommended</span></span>
+              <span class="radio-desc">Good balance of detection rate and safety. Suitable for most users.</span>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="sensitivity" value="aggressive" />
+            <div class="radio-body">
+              <span class="radio-title">Aggressive</span>
+              <span class="radio-desc">Removes more overlays including ambiguous ones. Higher risk of false positives.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">History & Undo</h2>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="undoHistorySize">Undo history depth</label>
+            <span class="setting-desc">Maximum number of cleanup operations that can be undone (1–20).</span>
+          </div>
+          <input type="number" id="undoHistorySize" class="input-number" min="1" max="20" />
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="maxLogEntries">Maximum log entries</label>
+            <span class="setting-desc">Older entries are automatically pruned (10–500).</span>
+          </div>
+          <input type="number" id="maxLogEntries" class="input-number" min="10" max="500" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tab: Detection ───────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-detection">
+      <h1 class="page-title">Detection</h1>
+
+      <div class="card">
+        <h2 class="card-title">Language</h2>
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label" for="langSelect">Primary language</label>
+            <span class="setting-desc">Pattern matching is always case-insensitive. English patterns are always active.</span>
+          </div>
+          <select id="langSelect" class="input-select">
+            <option value="en">English</option>
+            <option value="id">Indonesian (Bahasa Indonesia)</option>
+            <option value="es">Spanish (Español)</option>
+            <option value="pt">Portuguese (Português)</option>
+            <option value="fr">French (Français)</option>
+            <option value="de">German (Deutsch)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Exclusion Keywords</h2>
+        <p class="setting-desc" style="margin-bottom:12px;">Elements whose visible text contains any of these keywords will never be removed, regardless of score.</p>
+        <div class="tag-editor" id="exclusionTagEditor">
+          <div class="tags" id="exclusionTags"></div>
+          <div class="tag-input-row">
+            <input type="text" id="exclusionInput" class="input-text" placeholder="Add keyword and press Enter…" />
+            <button class="btn-small" id="btnAddExclusion">Add</button>
+          </div>
+        </div>
+        <p class="hint">Default exclusions: login, password, payment, cookie, gdpr, captcha, age verification…</p>
+      </div>
+    </section>
+
+    <!-- ── Tab: Domains ─────────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-domains">
+      <h1 class="page-title">Domains</h1>
+
+      <div class="card">
+        <h2 class="card-title">Allowlist</h2>
+        <p class="setting-desc" style="margin-bottom:12px;">ClearView is completely paused on these domains. Wildcards are not supported — enter the bare domain (e.g. <code>example.com</code>).</p>
+        <div class="tag-editor">
+          <div class="tags" id="allowlistTags"></div>
+          <div class="tag-input-row">
+            <input type="text" id="allowlistInput" class="input-text" placeholder="example.com" />
+            <button class="btn-small" id="btnAddAllowlist">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Monitor List</h2>
+        <p class="setting-desc" style="margin-bottom:12px;">Domains listed here are always scanned with aggressive sensitivity, regardless of the global setting.</p>
+        <div class="tag-editor">
+          <div class="tags" id="blocklistTags"></div>
+          <div class="tag-input-row">
+            <input type="text" id="blocklistInput" class="input-text" placeholder="problematic-site.com" />
+            <button class="btn-small" id="btnAddBlocklist">Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tab: Patterns ────────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-patterns">
+      <h1 class="page-title">Patterns</h1>
+
+      <div class="card">
+        <h2 class="card-title">Custom Text Patterns</h2>
+        <p class="setting-desc" style="margin-bottom:12px;">
+          Regular expressions (case-insensitive) that will be matched against visible element text.
+          A positive match adds to the element's confidence score. Invalid patterns are silently ignored.
+        </p>
+        <div class="tag-editor">
+          <div class="tags" id="customPatternTags"></div>
+          <div class="tag-input-row">
+            <input type="text" id="customPatternInput" class="input-text" placeholder="e.g. disable.*blocker" />
+            <button class="btn-small" id="btnAddPattern">Add</button>
+          </div>
+        </div>
+        <p class="hint">⚠ Do not add patterns that match legitimate page content — this could cause false positives.</p>
+      </div>
+    </section>
+
+    <!-- ── Tab: Diagnostics ─────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-diagnostics">
+      <h1 class="page-title">Diagnostics</h1>
+      <div class="card diag-header-card">
+        <p class="setting-desc">Local diagnostic log. No page content or credentials are ever recorded.</p>
+        <button class="btn-small" id="btnClearLog" style="margin-top:8px;">Clear Log</button>
+      </div>
+      <div class="log-container" id="logContainer">
+        <p class="empty-state">No log entries yet.</p>
+      </div>
+    </section>
+
+    <!-- ── Tab: About ───────────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-about">
+      <h1 class="page-title">About ClearView</h1>
+      <div class="card about-card">
+        <div class="about-logo">
+          <svg width="48" height="48" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="#00BCD4" stroke-width="2"/>
+            <circle cx="14" cy="14" r="5" stroke="#00BCD4" stroke-width="1.5" fill="rgba(0,188,212,0.1)"/>
+            <circle cx="14" cy="14" r="2" fill="#00BCD4"/>
+          </svg>
+          <div>
+            <h2 style="color:#00BCD4;font-size:20px;margin-bottom:2px;">ClearView</h2>
+            <p style="color:#8B90A0;font-size:12px;">Smart Popup Cleaner · v1.0.0</p>
+          </div>
+        </div>
+        <p style="margin:16px 0 12px;line-height:1.7;color:#C5C8D5;">
+          ClearView is an open-source Chromium extension that intelligently identifies and removes
+          intrusive anti-adblock overlays, newsletter modals, and promotional popups — while
+          preserving legitimate dialogs like login screens, cookie consent, and payment forms.
+        </p>
+        <div class="about-permissions">
+          <h3>Permissions Explained</h3>
+          <dl>
+            <dt><code>storage</code></dt>
+            <dd>Save your settings and diagnostic log locally in the browser.</dd>
+            <dt><code>activeTab</code></dt>
+            <dd>Access the current tab to read its URL for popup display and domain checks.</dd>
+            <dt><code>scripting</code></dt>
+            <dd>Send messages to the content script running in the active tab.</dd>
+            <dt><code>tabs</code></dt>
+            <dd>Query tab URL to determine if a page is restricted (chrome://, edge://, etc.).</dd>
+            <dt><code>host_permissions: &lt;all_urls&gt;</code></dt>
+            <dd>Inject the content script into all HTTP/HTTPS pages so detection can run automatically.</dd>
+          </dl>
+        </div>
+        <div class="about-privacy">
+          <h3>Privacy Commitment</h3>
+          <ul>
+            <li>No data is transmitted to any external server.</li>
+            <li>No browsing history, page content, or credentials are recorded.</li>
+            <li>All settings are stored locally in <code>chrome.storage.local</code>.</li>
+            <li>Diagnostic logs are bounded, local, and user-clearable.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>
+

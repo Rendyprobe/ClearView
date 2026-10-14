@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearView</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="14" cy="14" r="13" stroke="#00BCD4" stroke-width="2"/>
+        <path d="M7 14 C7 10 10.5 7 14 7 C17.5 7 21 10 21 14 C21 18 17.5 21 14 21 C10.5 21 7 18 7 14Z"
+              stroke="#00BCD4" stroke-width="1.5" fill="rgba(0,188,212,0.08)"/>
+        <circle cx="14" cy="14" r="3.5" fill="#00BCD4"/>
+        <line x1="14" y1="3" x2="14" y2="6"  stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="22" x2="14" y2="25" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="3"  y1="14" x2="6"  y2="14" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="14" x2="25" y2="14" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">ClearView</span>
+        <span class="logo-sub">Smart Popup Cleaner</span>
+      </div>
+    </div>
+    <div class="master-toggle" id="masterToggle" role="switch" tabindex="0" aria-label="Enable or disable ClearView">
+      <div class="toggle-track">
+        <div class="toggle-thumb"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status Strip -->
+  <div class="status-strip" id="statusStrip">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Loading…</span>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-value" id="removedCount">0</span>
+      <span class="stat-label">Removed</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-value" id="modeLabel">—</span>
+      <span class="stat-label">Mode</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-value" id="domainLabel" title="">—</span>
+      <span class="stat-label">Domain</span>
+    </div>
+  </div>
+
+  <!-- Restricted Page Notice -->
+  <div class="notice notice--warn" id="restrictedNotice" hidden>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="#FFA500" aria-hidden="true">
+      <path d="M8 1L15 15H1L8 1Z" stroke="#FFA500" stroke-width="1.2" fill="none"/>
+      <line x1="8" y1="6" x2="8" y2="10" stroke="#FFA500" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="8" cy="12.5" r="0.8" fill="#FFA500"/>
+    </svg>
+    ClearView cannot run on this page (browser-internal or extension page).
+  </div>
+
+  <!-- Allowlisted Notice -->
+  <div class="notice notice--info" id="allowlistedNotice" hidden>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" stroke="#00BCD4" stroke-width="1.2"/>
+      <line x1="8" y1="5" x2="8" y2="9" stroke="#00BCD4" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="8" cy="11.5" r="0.8" fill="#00BCD4"/>
+    </svg>
+    This site is allowlisted — ClearView is paused here.
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="actions">
+    <button class="btn btn--primary" id="btnScan">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Scan This Page
+    </button>
+    <button class="btn btn--secondary" id="btnUndo" disabled>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 8 C3 5 5.5 3 8 3 C10.5 3 13 5 13 8 C13 11 10.5 13 8 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <polyline points="3,4 3,8 7,8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Undo Last Cleanup
+    </button>
+    <button class="btn btn--ghost" id="btnAllowlist">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2 L14 5 L14 9 C14 12 11 14.5 8 15 C5 14.5 2 12 2 9 L2 5 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <polyline points="5.5,8 7.5,10 11,6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span id="allowlistBtnLabel">Allowlist This Site</span>
+    </button>
+    <button class="btn btn--ghost" id="btnOptions">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.42M11.54 4.46l1.41-1.41"
+              stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      Open Settings
+    </button>
+  </div>
+
+  <!-- Scan Feedback -->
+  <div class="feedback" id="feedback" hidden>
+    <span id="feedbackText"></span>
+  </div>
+
+  <footer class="footer">v1.0.0 · <a href="#" id="footerDiag">Diagnostics</a></footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

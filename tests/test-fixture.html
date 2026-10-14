@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearView — Test Fixture Page</title>
+  <style>
+    :root {
+      --bg: #0D0F1A; --text: #DDE1EE; --muted: #7A7F94;
+      --card: #191D32; --border: rgba(255,255,255,0.08);
+      --cyan: #00BCD4; --green: #4CAF50; --red: #F44336; --orange: #FFA500;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      padding: 32px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 26px; color: var(--cyan); margin-bottom: 8px; }
+    h2 { font-size: 14px; font-weight: 700; color: var(--cyan); margin: 28px 0 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+    p  { color: var(--muted); margin-bottom: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 28px; }
+    button.ctrl {
+      padding: 8px 16px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 13px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    button.ctrl:hover { border-color: var(--cyan); color: var(--cyan); }
+    .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; font-size: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.should-remove { background: var(--red); }
+    .dot.should-keep   { background: var(--green); }
+    .dot.ambiguous     { background: var(--orange); }
+    hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+    #status { margin-top: 20px; padding: 12px 16px; background: var(--card); border-radius: 6px; font-size: 13px; color: var(--cyan); border: 1px solid var(--border); }
+
+    /* ── Test Scenarios ─── */
+
+    /* 1. Centered anti-adblock modal (SHOULD BE REMOVED) */
+    #test-adblock-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #test-adblock-modal .modal-box {
+      background: #1a1d2e;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 32px 40px;
+      max-width: 440px;
+      text-align: center;
+    }
+    #test-adblock-modal h3 { font-size: 20px; color: #fff; margin-bottom: 12px; }
+    #test-adblock-modal p  { color: #aaa; margin-bottom: 20px; }
+    #test-adblock-modal .modal-btn {
+      display: inline-block; padding: 10px 24px;
+      background: #e53935; color: #fff;
+      border: none; border-radius: 6px; font-size: 14px; cursor: pointer;
+    }
+
+    /* 2. Full-screen backdrop (SHOULD BE REMOVED) */
+    #test-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 5000;
+      pointer-events: all;
+    }
+
+    /* 3. Newsletter modal (SHOULD BE REMOVED) */
+    #test-newsletter {
+      position: fixed;
+      bottom: 30px; right: 30px;
+      background: #191D32;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 24px;
+      width: 320px;
+      z-index: 8000;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #test-newsletter h3 { font-size: 16px; color: #fff; margin-bottom: 8px; }
+    #test-newsletter p  { font-size: 13px; color: #aaa; margin-bottom: 12px; }
+    #test-newsletter input {
+      width: 100%; padding: 8px 10px; margin-bottom: 8px;
+      background: #0d0f1a; border: 1px solid #333; border-radius: 4px;
+      color: #fff; font-size: 13px;
+    }
+    #test-newsletter button {
+      width: 100%; padding: 9px; background: #00BCD4; color: #000;
+      border: none; border-radius: 4px; font-weight: 700; cursor: pointer;
+    }
+
+    /* 4. Legitimate login dialog (MUST NOT BE REMOVED) */
+    #test-login {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #191D32;
+      border: 1px solid #00BCD4;
+      border-radius: 10px;
+      padding: 28px 32px;
+      width: 340px;
+      z-index: 7000;
+    }
+    #test-login h3 { font-size: 18px; color: #fff; margin-bottom: 16px; }
+    #test-login label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; margin-top: 10px; }
+    #test-login input {
+      width: 100%; padding: 8px 10px;
+      background: #0d0f1a; border: 1px solid #333; border-radius: 4px;
+      color: #fff; font-size: 13px;
+    }
+    #test-login button {
+      width: 100%; margin-top: 16px; padding: 10px;
+      background: #00BCD4; color: #000; border: none;
+      border-radius: 4px; font-weight: 700; cursor: pointer;
+    }
+
+    /* 5. Cookie consent (MUST NOT BE REMOVED) */
+    #test-cookie {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1a1d2e;
+      border-top: 1px solid #333;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 6000;
+    }
+    #test-cookie p  { font-size: 13px; color: #aaa; margin: 0; }
+    #test-cookie button {
+      padding: 8px 18px; background: #00BCD4; color: #000;
+      border: none; border-radius: 4px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+
+    /* 6. Repeat-inject overlay (SHOULD BE REMOVED and re-injection handled) */
+    #test-reinsert {
+      position: fixed;
+      top: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: #2d0a0a;
+      border: 2px solid #e53935;
+      border-radius: 8px;
+      padding: 16px 24px;
+      z-index: 9500;
+      color: #fff;
+      text-align: center;
+      width: 420px;
+    }
+
+    /* 7. Video player (MUST NOT BE REMOVED) */
+    #test-player-wrapper {
+      margin: 20px 0;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 16/9;
+      max-width: 560px;
+    }
+    #test-player-wrapper video { width: 100%; height: 100%; display: block; }
+    .player-controls {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.8));
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .player-controls button {
+      background: none; border: none; color: #fff; cursor: pointer; font-size: 16px;
+    }
+    .progress-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+
+    /* Ambiguous modal */
+    #test-ambiguous {
+      position: fixed;
+      top: 20%; right: 20px;
+      background: #191D32;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      width: 260px;
+      z-index: 7500;
+    }
+
+    /* Labels */
+    .test-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    .should-remove-label { background: rgba(244,67,54,0.15); color: var(--red); }
+    .should-keep-label   { background: rgba(76,175,80,0.15);  color: var(--green); }
+    .ambiguous-label     { background: rgba(255,165,0,0.12);   color: var(--orange); }
+  </style>
+</head>
+<body>
+
+<h1>🔍 ClearView — Test Fixture Page</h1>
+<p>This page contains 10 test scenarios for the ClearView extension. Use the controls below to show/hide specific test elements.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot should-remove"></div> Should be detected &amp; removed</div>
+  <div class="legend-item"><div class="dot should-keep"></div> Must NOT be removed (legitimate)</div>
+  <div class="legend-item"><div class="dot ambiguous"></div> Ambiguous — preview only</div>
+</div>
+
+<div class="controls">
+  <button class="ctrl" onclick="toggleEl('test-adblock-modal')">1. Adblock Modal</button>
+  <button class="ctrl" onclick="toggleEl('test-backdrop')">2. Backdrop</button>
+  <button class="ctrl" onclick="startReinsert()">3. Dynamic Overlay</button>
+  <button class="ctrl" onclick="toggleEl('test-newsletter')">4. Newsletter</button>
+  <button class="ctrl" onclick="toggleEl('test-login')">5. Login Dialog</button>
+  <button class="ctrl" onclick="toggleEl('test-cookie')">6. Cookie Consent</button>
+  <button class="ctrl" onclick="document.getElementById('test-player-wrapper').scrollIntoView()">7. Video Player</button>
+  <button class="ctrl" onclick="document.getElementById('article-section').scrollIntoView()">8. Article</button>
+  <button class="ctrl" onclick="toggleEl('test-ambiguous')">9. Ambiguous Modal</button>
+  <button class="ctrl" onclick="startReinsert()">10. Reinsert Overlay</button>
+  <button class="ctrl" style="border-color:var(--cyan);color:var(--cyan)" onclick="showAll()">Show All</button>
+  <button class="ctrl" onclick="hideAll()">Hide All</button>
+</div>
+
+<div id="status">Status: Use the ClearView extension popup to scan this page. Watch which elements get removed.</div>
+
+<hr />
+
+<!-- ── SCENARIO 7: Video Player (KEEP) ─── -->
+<h2>Scenario 7 — Video Player <span class="test-label should-keep-label">✓ Keep</span></h2>
+<p>A video player with custom controls. ClearView must not remove this.</p>
+<div id="test-player-wrapper" class="player-wrapper">
+  <video src="" poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='315' viewBox='0 0 560 315'%3E%3Crect fill='%23111' width='560' height='315'/%3E%3Ctext fill='%23555' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-size='18' font-family='sans-serif'%3EVideo Player Test%3C/text%3E%3C/svg%3E"></video>
+  <div class="player-controls">
+    <button>▶</button>
+    <div class="progress-bar"></div>
+    <button>⛶</button>
+  </div>
+</div>
+
+<hr />
+
+<!-- ── SCENARIO 8: Article text discussing ad blockers (KEEP) ─── -->
+<h2 id="article-section">Scenario 8 — Article About Ad Blockers <span class="test-label should-keep-label">✓ Keep</span></h2>
+<p>This article discusses ad blockers. The text should NOT trigger false positive detection.</p>
+
+<article style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:700px;line-height:1.8;margin-top:12px;">
+  <h3 style="font-size:18px;color:var(--text);margin-bottom:12px;">The Rise of Ad Blocker Detected Messages</h3>
+  <p style="color:var(--muted);margin-bottom:12px;">
+    Over the past decade, websites have increasingly deployed anti-adblock technology to
+    detect when visitors have an ad blocker enabled. These systems typically inject a
+    warning modal when they detect that ad scripts failed to load — essentially detecting
+    adblock by checking whether their own advertising infrastructure executed correctly.
+  </p>
+  <p style="color:var(--muted);margin-bottom:12px;">
+    Some publishers use polite notifications asking users to "disable your ad blocker" or
+    "whitelist this website", while others aggressively block all page content until the
+    user complies. The user experience impact of these "please turn off your ad blocker"
+    messages has been a major topic in web development circles.
+  </p>
+  <p style="color:var(--muted);">
+    Extensions like uBlock Origin help users bypass these "ad blocker detected" messages.
+    The techniques used range from simple CSS selector blocking to deep JavaScript patching.
+    Interestingly, some sites that say "disable adblock to continue" actually still serve
+    content if the user simply dismisses the modal.
+  </p>
+</article>
+
+<hr />
+
+<p style="margin-top:20px;font-size:12px;color:var(--muted);">
+  Overlays above are injected and controlled by the buttons at the top of the page.
+  Run the ClearView scan from the extension popup to see detection results.
+</p>
+
+<!-- ── SCENARIO 1: Anti-adblock Modal ─── -->
+<div id="test-adblock-modal" role="dialog" aria-modal="true" aria-label="Adblock detected">
+  <div class="modal-box">
+    <h3>⚠ Ad Blocker Detected</h3>
+    <p>We've noticed you're using an ad blocker. Ads help us keep this site free. Please disable your ad blocker or whitelist this website to continue reading.</p>
+    <button class="modal-btn" aria-label="Close" onclick="document.getElementById('test-adblock-modal').style.display='none'">Disable AdBlock</button>
+  </div>
+</div>
+
+<!-- ── SCENARIO 2: Backdrop ─── -->
+<div id="test-backdrop" aria-hidden="true"></div>
+
+<!-- ── SCENARIO 3 + 10: Dynamically reinserted overlay ─── -->
+<div id="test-reinsert" style="display:none;" role="alertdialog">
+  <strong style="color:#ff5252;">Your ad blocker is active!</strong>
+  <p style="font-size:12px;color:#ccc;margin-top:8px;">Please turn off your blocker to support us by disabling your extension.</p>
+  <div id="reinsert-counter" style="font-size:11px;color:#888;margin-top:6px;"></div>
+</div>
+
+<!-- ── SCENARIO 4: Newsletter modal ─── -->
+<div id="test-newsletter" aria-label="Subscribe to newsletter" style="display:none;">
+  <h3>📧 Subscribe to our newsletter</h3>
+  <p>Get the latest articles delivered to your inbox. Sign up for our newsletter today!</p>
+  <input type="email" placeholder="Enter your email to subscribe" />
+  <button>Subscribe Now</button>
+</div>
+
+<!-- ── SCENARIO 5: Login dialog (MUST KEEP) ─── -->
+<div id="test-login" role="dialog" aria-modal="true" aria-label="Login" style="display:none;">
+  <h3>🔐 Sign In</h3>
+  <label for="l-email">Email</label>
+  <input id="l-email" type="email" placeholder="you@example.com" autocomplete="email" />
+  <label for="l-pass">Password</label>
+  <input id="l-pass" type="password" placeholder="Your password" autocomplete="current-password" />
+  <button>Log In</button>
+</div>
+
+<!-- ── SCENARIO 6: Cookie consent (MUST KEEP) ─── -->
+<div id="test-cookie" role="dialog" aria-label="Cookie consent" style="display:none;">
+  <p>This site uses cookies to improve your experience. By continuing, you agree to our <a href="#" style="color:#00BCD4;">Cookie Policy</a> and <a href="#" style="color:#00BCD4;">Privacy Policy</a> (GDPR).</p>
+  <button onclick="document.getElementById('test-cookie').style.display='none'">Accept</button>
+</div>
+
+<!-- ── SCENARIO 9: Ambiguous modal ─── -->
+<div id="test-ambiguous" role="dialog" style="display:none;">
+  <h4 style="color:#fff;margin-bottom:8px;">Support Our Work</h4>
+  <p style="font-size:12px;color:#aaa;line-height:1.6;">Revenue from ads helps us provide free content. Consider supporting us directly or allowing ads.</p>
+  <button style="margin-top:12px;padding:6px 14px;background:transparent;border:1px solid #555;color:#aaa;border-radius:4px;cursor:pointer;width:100%;">Maybe Later</button>
+</div>
+
+<script>
+  function toggleEl(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+
+  function showAll() {
+    ['test-adblock-modal','test-backdrop','test-newsletter','test-login','test-cookie','test-reinsert','test-ambiguous']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+    startReinsert();
+  }
+
+  function hideAll() {
+    stopReinsert();
+    ['test-adblock-modal','test-backdrop','test-newsletter','test-login','test-cookie','test-reinsert','test-ambiguous']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  }
+
+  // Scenario 3 & 10: Dynamically reinserted overlay
+  let reinsertTimer = null;
+  let reinsertCount = 0;
+
+  function startReinsert() {
+    stopReinsert();
+    reinsertCount = 0;
+    const overlay = document.getElementById('test-reinsert');
+    if (overlay) {
+      overlay.style.display = '';
+      const counter = document.getElementById('reinsert-counter');
+      if (counter) counter.textContent = 'Reinjection count: ' + reinsertCount;
+    }
+    reinsertTimer = setInterval(() => {
+      const el = document.getElementById('test-reinsert');
+      if (!el) return;
+      // If ClearView hid it, force it back (reinsertion simulation)
+      if (el.style.display === 'none' || el.dataset.clearviewHidden) {
+        reinsertCount++;
+        el.style.removeProperty('display');
+        delete el.dataset.clearviewHidden;
+        const counter = document.getElementById('reinsert-counter');
+        if (counter) counter.textContent = 'Reinjection count: ' + reinsertCount;
+      }
+      // Stop after 10 reinjections
+      if (reinsertCount >= 10) stopReinsert();
+    }, 2000);
+  }
+
+  function stopReinsert() {
+    if (reinsertTimer) { clearInterval(reinsertTimer); reinsertTimer = null; }
+  }
+
+  // Lock body scroll (tests Scenario 1 side effect)
+  document.getElementById('test-adblock-modal').addEventListener('mouseenter', () => {
+    document.body.style.overflow = 'hidden';
+  });
+</script>
+</body>
+</html>
+
