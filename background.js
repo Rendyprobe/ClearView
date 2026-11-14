@@ -47,7 +47,29 @@ chrome.runtime.onStartup.addListener(() => {
   console.log('[ClearView] Browser started.');
 });
 
-// ─── Badge Helper ────────────────────────────────────────────────────────────
+// ─── Badge Helper & Tab Frame Aggregation ───────────────────────────────────
+
+const tabFrameCounts = new Map();
+const recentPopupAttempts = new Map();
+
+function getTabTotalCount(tabId) {
+  const frames = tabFrameCounts.get(tabId);
+  if (!frames) return 0;
+  let total = 0;
+  for (const count of frames.values()) total += count;
+  return total;
+}
+
+chrome.tabs.onRemoved.addListener(tabId => {
+  tabFrameCounts.delete(tabId);
+  recentPopupAttempts.delete(tabId);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading' && changeInfo.url) {
+    tabFrameCounts.delete(tabId);
+  }
+});
 
 async function setBadge(tabId, count, enabled) {
   if (!enabled) {
@@ -68,12 +90,26 @@ async function setBadge(tabId, count, enabled) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const tabId = sender?.tab?.id;
+  const frameId = sender?.frameId ?? 0;
 
   switch (message.type) {
 
     case 'BADGE_UPDATE': {
       const { count, enabled } = message;
-      if (tabId !== undefined) setBadge(tabId, count, enabled);
+      if (tabId !== undefined) {
+        if (!tabFrameCounts.has(tabId)) tabFrameCounts.set(tabId, new Map());
+        tabFrameCounts.get(tabId).set(frameId, count || 0);
+        const total = getTabTotalCount(tabId);
+        setBadge(tabId, total, enabled);
+      }
+      sendResponse({ ok: true });
+      break;
+    }
+
+    case 'SUSPICIOUS_POPUP_ATTEMPT': {
+      if (tabId !== undefined) {
+        recentPopupAttempts.set(tabId, Date.now());
+      }
       sendResponse({ ok: true });
       break;
     }
@@ -159,7 +195,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
       if (!tab?.id) { sendResponse({ error: 'No active tab' }); return; }
       chrome.tabs.sendMessage(tab.id, { type: 'GET_STATUS' })
-        .then(r => sendResponse(r))
+        .then(r => {
+          const totalCount = getTabTotalCount(tab.id) || r?.removedCount || 0;
+          sendResponse({ ...r, removedCount: totalCount });
+        })
         .catch(() => sendResponse({ error: 'Content script not reachable', tabUrl: tab.url }));
     });
     return true;
@@ -190,10 +229,12 @@ async function notifyAllTabs(message) {
 // ─── Intelligent New-Tab / Popunder Interception ──────────────────────────────
 
 const AD_SUSPICIOUS_URL_PATTERNS = [
-  /ad[\s_.-]?(?:click|server|traffic|network|rotator|redirect|gateway|zone|link)/i,
-  /pop[\s_.-]?(?:under|up|cash|ads)/i,
-  /(?:bet|casino|gambling|porn|tracker|affiliate|trk|syndication)/i,
-  /(?:doubleclick\.net|googlesyndication\.com|adnxs\.com|propellerads\.com|exoclick\.com)/i
+  /ad[\s_.-]?(?:click|server|traffic|network|rotator|redirect|gateway|zone|link|cash|maven|keeper|ster|center)/i,
+  /pop[\s_.-]?(?:under|up|cash|ads|myads)/i,
+  /(?:bet|casino|gambling|porn|tracker|affiliate|trk|syndication|clickadu|hilltopads|propellerads|exoclick|monetag|richpush|yadro|trafficstars|juicyads|trafficjunky|onclick|revenuehits|yllix)/i,
+  /(?:doubleclick\.net|googlesyndication\.com|adnxs\.com)/i,
+  /[?&](?:utm_source|aff_id|subid|clickid|pubid|cid|camp|direct_link)=/i,
+  /(?:1x-?bet|bet365|slot|jackpot|bonus|vulkan)/i
 ];
 
 chrome.tabs.onCreated.addListener(async (newTab) => {
@@ -215,31 +256,48 @@ chrome.tabs.onCreated.addListener(async (newTab) => {
     });
     if (isAllowlisted) return;
 
-    // Monitor url updates on this new tab
     const tabId = newTab.id;
+
+    // Check if opener tab recently reported a blocked suspicious popup attempt from video player
+    const getAttemptDelta = () => Date.now() - (recentPopupAttempts.get(newTab.openerTabId) || 0);
+    const isRecentSuspiciousAttempt = () => getAttemptDelta() < 3500;
+
+    // Close tab helper
+    const closeBlockedTab = (targetUrl, reason) => {
+      chrome.tabs.remove(tabId).catch(() => {});
+      chrome.tabs.sendMessage(newTab.openerTabId, {
+        type: 'POPUP_TAB_BLOCKED',
+        blockedUrl: targetUrl
+      }).catch(() => {});
+
+      appendLog({
+        type: 'blocked_tab',
+        domain: openerDomain,
+        url: (targetUrl || '').slice(0, 100),
+        reason: reason || 'Suspicious ad/popunder URL pattern'
+      });
+    };
+
+    // If immediately opened during an unauthorized video popup attempt and initial url matches or is blank
+    if (isRecentSuspiciousAttempt() && (newTab.pendingUrl || newTab.url)) {
+      const initialUrl = newTab.pendingUrl || newTab.url || '';
+      if (initialUrl === 'about:blank' || AD_SUSPICIOUS_URL_PATTERNS.some(p => p.test(initialUrl))) {
+        closeBlockedTab(initialUrl, 'Correlated with blocked video popup event');
+        return;
+      }
+    }
+
+    // Monitor url updates on this new tab
     const urlCheckListener = (updatedTabId, changeInfo) => {
       if (updatedTabId !== tabId) return;
       const targetUrl = changeInfo.url;
       if (!targetUrl) return;
 
-      // Check if target matches ad/popunder suspicious patterns
+      // Check if target matches ad/popunder suspicious patterns or correlated attempt
       const isSuspicious = AD_SUSPICIOUS_URL_PATTERNS.some(p => p.test(targetUrl));
-      if (isSuspicious) {
-        chrome.tabs.remove(tabId).catch(() => {});
+      if (isSuspicious || (isRecentSuspiciousAttempt() && !targetUrl.includes(openerDomain))) {
         chrome.tabs.onUpdated.removeListener(urlCheckListener);
-
-        // Notify opener tab to increment blocked count & badge
-        chrome.tabs.sendMessage(newTab.openerTabId, {
-          type: 'POPUP_TAB_BLOCKED',
-          blockedUrl: targetUrl
-        }).catch(() => {});
-
-        appendLog({
-          type: 'blocked_tab',
-          domain: openerDomain,
-          url: targetUrl.slice(0, 100),
-          reason: 'Suspicious ad/popunder URL pattern'
-        });
+        closeBlockedTab(targetUrl, isSuspicious ? 'Suspicious ad/popunder URL pattern' : 'Blocked video provider popup');
       }
     };
 

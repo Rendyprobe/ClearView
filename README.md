@@ -32,6 +32,7 @@
 | ↩️ **Undo** | Semua penghapusan bersifat reversibel — elemen hanya disembunyikan, tidak dihapus permanen |
 | 👁️ **Preview Mode** | Sorot overlay yang terdeteksi tanpa menghapusnya |
 | 🔄 **Dukungan SPA** | MutationObserver mendeteksi overlay yang diinjeksi secara dinamis di aplikasi React/Vue/Angular |
+| 🎬 **Proteksi Penyedia Video & Iframe** | Mencegah popunder, popup tab baru, dan clickjacking overlay pada embed video (Doodstream, Streamtape, Filelions, JWPlayer, dsb.) dengan injeksi di semua frame (`all_frames`) |
 | 📋 **Allowlist/Blocklist** | Kontrol per-domain yang dapat dikonfigurasi |
 | 📊 **Diagnostik Lokal** | Log detail dapat ditinjau dan dihapus kapan saja |
 
@@ -230,6 +231,7 @@ Buka **Settings** dari popup atau ketik `chrome://extensions` → klik **Details
 clearview/
 ├── manifest.json          # Manifest V3 — definisi ekstensi
 ├── background.js          # Service worker — koordinasi, badge, storage
+├── popup-guardian.js      # MAIN world script — defuser anti-adblock & popup blocker
 ├── content.js             # Content script — deteksi, scoring, cleanup, MutationObserver
 ├── popup.html             # UI popup toolbar
 ├── popup.css              # Styling popup
@@ -247,18 +249,31 @@ clearview/
 │   ├── icon48.png
 │   └── icon128.png
 ├── tests/
-│   ├── test-fixture.html  # Halaman pengujian dengan 10 skenario
-│   └── checklist.js       # Checklist pengujian manual
+│   ├── test-fixture.html   # Halaman pengujian dengan 15 skenario
+│   ├── test-anti-adblock.js # Automated unit test suite untuk anti-adblock defusal
+│   └── checklist.js        # Checklist pengujian manual (TC-01 s/d TC-19)
 └── README.md              # Dokumentasi ini
 ```
 
-> **Catatan Arsitektur:** `content.js` adalah IIFE (non-module) yang berisi semua logika inline. Folder `rules/` berisi modul ES terpisah yang dirancang untuk penggunaan di lingkungan bundler atau pengujian unit di masa depan. Duplikasi ini disengaja untuk kompatibilitas MV3 content script.
+> **Catatan Arsitektur:** `content.js` adalah IIFE (non-module) yang berisi semua logika inline. `popup-guardian.js` berjalan di `MAIN` world pada `document_start` di semua frame untuk menetralkan probe anti-adblock dan clickjacking sebelum skrip situs penayang berjalan.
 
 ---
 
 ## Menjalankan Tes
 
-### Memuat Halaman Uji
+### Menjalankan Automated Test Suite
+```bash
+node tests/test-anti-adblock.js
+```
+Akan menjalankan 11 unit test otomatis untuk memvalidasi:
+- Kunci variabel global anti-adblock (`canRunAds`, `isAdblockActive`, dll.)
+- Abort-on-property-write (`aopw` pada `DoodPop`, `_pop`, `__aaZoneid`)
+- Spoofing dimensi & `getComputedStyle` elemen bait
+- Abort-current-inline-script (`acis` pada deteksi bait)
+- Defusal debugger trap & probe jaringan (`fetch`, `XHR`)
+- Pembersihan banner Doodstream dan pemulihan kontainer `#os_player`
+
+### Memuat Halaman Uji Manual
 1. Muat ekstensi sebagai unpacked (lihat instruksi instalasi)
 2. Buka file `tests/test-fixture.html` di browser:
    - Di Chrome/Brave: seret file ke jendela browser, atau tekan `Ctrl+O`
@@ -271,7 +286,7 @@ clearview/
 ```bash
 node tests/checklist.js
 ```
-Akan menampilkan 16 test case beserta langkah dan hasil yang diharapkan.
+Akan menampilkan 19 test case beserta langkah dan hasil yang diharapkan.
 
 ### Skenario Pengujian
 | # | Skenario | Hasil yang Diharapkan |
@@ -292,6 +307,9 @@ Akan menampilkan 16 test case beserta langkah dan hasil yang diharapkan.
 | TC-14 | Setelah refresh | ✅ Ekstensi berjalan normal |
 | TC-15 | Export/Import pengaturan | ✅ Berhasil |
 | TC-16 | Penggunaan CPU | ✅ < 5% konsisten |
+| TC-17 | Video clickjacking & popup | ✅ Overlay dihapus, window.open diblokir |
+| TC-18 | Iframe penyedia video | ✅ all_frames & match_about_blank terlindungi |
+| TC-19 | Doodstream anti-adblock banner | ✅ Banner oranye didefuse, player pulih |
 
 ---
 

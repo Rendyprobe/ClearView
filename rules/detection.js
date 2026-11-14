@@ -26,7 +26,10 @@ export const ADBLOCK_PATTERNS = [
   /please[\s_-]allow[\s_-]ads?/i,
   /revenue[\s_-]from[\s_-]ads?/i,
   /ads?[\s_-](?:help|support|keep|fund)/i,
-  /paywalled?[\s_-]content[\s_-]without[\s_-]ads/i
+  /paywalled?[\s_-]content[\s_-]without[\s_-]ads/i,
+  /(?:does[\s_-]?n'?t|not)[\s_-]?allow[\s_-]?ad[\s_-]?block/i,
+  /disable[\s_-]?(?:and|to)[\s_-]?(?:reload|continue)[\s_-]?(?:watching|viewing|reading)/i,
+  /publisher[\s_-]?(?:does[\s_-]?n'?t|not)[\s_-]?allow/i
 ];
 
 export const NEWSLETTER_PATTERNS = [
@@ -210,10 +213,25 @@ export function isInsideArticle(el) {
  * Returns true if element appears to be a media player.
  */
 export function isMediaPlayer(el) {
+  if (!el) return false;
   const tag = el.tagName?.toLowerCase();
   if (tag === 'video' || tag === 'audio') return true;
-  const cls = (el.className || '').toLowerCase() + ' ' + (el.id || '').toLowerCase();
-  return /\b(player|video[\s_-]?js|plyr|jwplayer|brightcove|youtube|vimeo)\b/.test(cls);
+  const id  = (el.id || '').toLowerCase();
+  const cls = (el.className || '').toLowerCase();
+  const full = id + ' ' + cls;
+
+  // Elements acting as ad overlays, clickjacks, or banners are NOT media players
+  if (/\b(ad|ads|overlay|banner|popup|sponsor|click|clickjack|vast|vpaid|preroll|midroll|preview)\b/i.test(full)) {
+    return false;
+  }
+
+  // Must actually contain a media element to be considered a media player container
+  const hasMediaChild = el.querySelector && el.querySelector('video, audio');
+  if (!hasMediaChild) return false;
+
+  return /\b(video[\s_-]?js|plyr|jwplayer|brightcove|youtube|vimeo)\b/.test(full) ||
+         /^(?:player|video-container|player-wrapper)$/.test(id) ||
+         /^(?:player|video-container|player-wrapper)$/.test(cls);
 }
 
 /**

@@ -17,13 +17,13 @@
   'use strict';
 
   // ─── Guard: skip restricted pages ───────────────────────────────────────
-  if (!document || !document.body) return;
+  if (!document) return;
   const href = location.href;
   if (href.startsWith('chrome://') ||
       href.startsWith('chrome-extension://') ||
-      href.startsWith('about:') ||
       href.startsWith('edge://') ||
-      href.startsWith('brave://')) return;
+      href.startsWith('brave://') ||
+      (href.startsWith('about:') && href !== 'about:blank')) return;
 
   // ─── State ───────────────────────────────────────────────────────────────
   let settings         = null;
@@ -83,7 +83,10 @@
     /(?:looks?[\s_-]?like|it[\s_-]?appears?)[\s_-]you[\s_-](?:have|'re[\s_-]using)[\s_-](?:an[\s_-]?)?ad[\s_-]?block/i,
     /please[\s_-]allow[\s_-]ads?/i,
     /revenue[\s_-]from[\s_-]ads?/i,
-    /ads?[\s_-](?:help|support|keep|fund)/i
+    /ads?[\s_-](?:help|support|keep|fund)/i,
+    /(?:does[\s_-]?n'?t|not)[\s_-]?allow[\s_-]?ad[\s_-]?block/i,
+    /disable[\s_-]?(?:and|to)[\s_-]?(?:reload|continue)[\s_-]?(?:watching|viewing|reading)/i,
+    /publisher[\s_-]?(?:does[\s_-]?n'?t|not)[\s_-]?allow/i
   ];
 
   const NEWSLETTER_PATTERNS = [
@@ -198,11 +201,208 @@
   }
 
   function isMediaPlayer(el) {
+    if (!el) return false;
     const tag = el.tagName?.toLowerCase();
     if (tag === 'video' || tag === 'audio') return true;
     const id  = (el.id || '').toLowerCase();
     const cls = (el.className || '').toLowerCase();
-    return /\b(player|video[\s_-]?js|plyr|jwplayer|brightcove)\b/.test(id + ' ' + cls);
+    const full = id + ' ' + cls;
+
+    // Elements explicitly acting as ad overlays, clickjacks, or banners are NOT media players
+    if (/\b(ad|ads|overlay|banner|popup|sponsor|click|clickjack|vast|vpaid|preroll|midroll|preview)\b/i.test(full)) {
+      return false;
+    }
+
+    // Must actually contain a media element to be considered a media player container
+    const hasMediaChild = el.querySelector && el.querySelector('video, audio');
+    if (!hasMediaChild) return false;
+
+    return /\b(video[\s_-]?js|plyr|jwplayer|brightcove)\b/.test(full) ||
+           /^(?:player|video-container|player-wrapper)$/.test(id) ||
+           /^(?:player|video-container|player-wrapper)$/.test(cls);
+  }
+
+  function isSameOriginUrl(urlStr) {
+    if (!urlStr) return true;
+    try {
+      const u = new URL(urlStr, window.location.href);
+      return u.origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  function findAllVideos(root = document) {
+    const videos = [...root.querySelectorAll('video')];
+    try {
+      const all = root.querySelectorAll('*');
+      for (const el of all) {
+        if (el.shadowRoot) {
+          videos.push(...findAllVideos(el.shadowRoot));
+        }
+      }
+    } catch {}
+    return videos;
+  }
+
+  const ANTI_ADBLOCK_TEXT_REGEX = /(?:does[\s_-]?n'?t|not)[\s_-]?allow[\s_-]?ad[\s_-]?block|disable[\s_-]?(?:and|to)[\s_-]?(?:reload|continue)[\s_-]?(?:watching|viewing)|publisher[\s_-]?(?:does[\s_-]?n'?t|not)[\s_-]?allow/i;
+
+  function cleanAntiAdblockBanners() {
+    if (!enabled || !settings?.autoCleanup) return 0;
+    let removed = 0;
+
+    // Scan all text-bearing elements for the exact publisher anti-adblock message across whole DOM
+    const all = document.querySelectorAll('div, p, span, section, font, b, strong, a, h1, h2, h3, h4, center');
+    for (const el of all) {
+      if (el.dataset?.clearviewHidden) continue;
+      const text = (el.innerText || el.textContent || '').trim();
+      if (text.length > 10 && text.length < 350 && ANTI_ADBLOCK_TEXT_REGEX.test(text)) {
+        hideEl(el);
+        try { el.remove(); } catch {}
+        // Also hide/remove parent box/modal/container if it's an overlay
+        let cur = el.parentElement;
+        while (cur && cur !== document.body && cur.id !== 'os_player' && cur.id !== 'video_player') {
+          const style = getComputedStyle(cur);
+          if (style.position === 'absolute' || style.position === 'fixed' || cur.querySelectorAll('*').length < 6) {
+            hideEl(cur);
+            try { cur.remove(); } catch {}
+          }
+          cur = cur.parentElement;
+        }
+        removed++;
+      }
+    }
+
+    if (removed > 0) {
+      removedCount += removed;
+      updateBadge();
+
+      // Ensure player containers (#os_player, .player, video) are visible and unlocked
+      const playerElements = document.querySelectorAll('#os_player, #video_player, .player, .video-js, video, [class*="player" i]');
+      for (const p of playerElements) {
+        p.style.setProperty('display', 'block', 'important');
+        p.style.setProperty('visibility', 'visible', 'important');
+        p.style.setProperty('opacity', '1', 'important');
+        p.style.setProperty('pointer-events', 'auto', 'important');
+      }
+
+      // Restore clickability of any play buttons inside player containers
+      const playButtons = document.querySelectorAll('#os_player button, #os_player [class*="play" i], #os_player svg, .player button, .player [class*="play" i]');
+      for (const btn of playButtons) {
+        btn.style.setProperty('display', 'block', 'important');
+        btn.style.setProperty('visibility', 'visible', 'important');
+        btn.style.setProperty('pointer-events', 'auto', 'important');
+      }
+
+      // If video exists and is paused, unpause it
+      for (const v of document.querySelectorAll('video')) {
+        if (v.paused && v.src) {
+          try { v.play(); } catch {}
+        }
+      }
+
+      logEvent({
+        type: 'cleanup_anti_adblock_banner',
+        count: removed,
+        domain: getCurrentDomain()
+      });
+    }
+
+    return removed;
+  }
+
+  function cleanVideoOverlays() {
+    if (!enabled || !settings?.autoCleanup) return 0;
+
+    // Clean anti-adblock banners regardless of <video> tag existence
+    cleanAntiAdblockBanners();
+
+    const videos = findAllVideos(document);
+    const playerContainers = document.querySelectorAll('#os_player, #video_player, .video-js, .jwplayer, .plyr, [class*="player" i]');
+    if (!videos.length && !playerContainers.length) return 0;
+
+    let removed = 0;
+    const overlaysToRemove = [];
+
+    for (const video of videos) {
+      const vRect = video.getBoundingClientRect();
+      if (vRect.width < 50 || vRect.height < 50) continue;
+
+      const container = video.closest('.jwplayer, .video-js, .plyr, [class*="player" i], [id*="player" i], div') || video.parentElement;
+      if (!container) continue;
+
+      const candidates = container.querySelectorAll('a, div, span, iframe, button, canvas, svg, p, img, section');
+      for (const el of candidates) {
+        if (el === video || el.contains(video)) continue;
+        if (el.dataset?.clearviewHidden) continue;
+
+        const tag = el.tagName.toLowerCase();
+        const cls = (el.className || '').toString().toLowerCase();
+        const id  = (el.id || '').toLowerCase();
+        const full = id + ' ' + cls;
+
+        // Skip legitimate video player controls
+        if (/\b(control|controls|progress|time|volume|fullscreen|play-btn|vjs-play-control|jw-controlbar)\b/i.test(full)) {
+          continue;
+        }
+
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') continue;
+        if (st.position !== 'absolute' && st.position !== 'fixed') continue;
+
+        const rect = el.getBoundingClientRect();
+        const overlapW = Math.max(0, Math.min(rect.right, vRect.right) - Math.max(rect.left, vRect.left));
+        const overlapH = Math.max(0, Math.min(rect.bottom, vRect.bottom) - Math.max(rect.top, vRect.top));
+        const overlapArea = overlapW * overlapH;
+        const videoArea = vRect.width * vRect.height;
+        const coverage = videoArea > 0 ? overlapArea / videoArea : 0;
+
+        const innerTxt = el.innerText || el.textContent || '';
+        const isAntiAdblockBanner = /(?:does[\s_-]?n'?t|not)[\s_-]?allow[\s_-]?ad[\s_-]?block|disable[\s_-]?(?:and|to)[\s_-]?(?:reload|continue)|publisher[\s_-]?(?:does[\s_-]?n'?t|not)[\s_-]?allow/i.test(innerTxt);
+
+        if (coverage > 0.35 || isAntiAdblockBanner) {
+          const opacity = parseFloat(st.opacity);
+          const isTransparent = opacity < 0.1 || st.backgroundColor === 'transparent' || st.backgroundColor === 'rgba(0, 0, 0, 0)';
+          const isAnchor = tag === 'a' && el.href;
+          const isAdNamed = /\b(ad|ads|overlay|click|popup|banner|sponsor|vast|vpaid|preroll|jw-preview|fake|adblock)\b/i.test(full);
+          const zIndex = parseInt(st.zIndex, 10) || 0;
+
+          if (isAntiAdblockBanner || isAdNamed || (isAnchor && !isSameOriginUrl(el.href)) || (isTransparent && zIndex > 10 && el.innerText.trim().length < 5)) {
+            overlaysToRemove.push(el);
+          }
+        }
+      }
+    }
+
+    const record = { elements: [], prevDisplays: [], scrollRestored: false, timestamp: Date.now() };
+    for (const el of overlaysToRemove) {
+      if (!isVisible(el)) continue;
+      const prev = hideEl(el);
+      record.elements.push(el);
+      record.prevDisplays.push(prev);
+      removed++;
+    }
+
+    if (record.elements.length) {
+      undoStack.unshift(record);
+      if (undoStack.length > MAX_UNDO) undoStack.pop();
+      removedCount += removed;
+      updateBadge();
+
+      // Ensure video element display is restored if hidden by anti-adblock
+      for (const video of videos) {
+        if (video.style.display === 'none') video.style.removeProperty('display');
+        if (video.style.visibility === 'hidden') video.style.removeProperty('visibility');
+      }
+
+      logEvent({
+        type: 'cleanup_video_overlay',
+        count: removed,
+        domain: getCurrentDomain()
+      });
+    }
+
+    return removed;
   }
 
   function isNavigation(el) {
@@ -372,12 +572,14 @@
   function hideEl(el) {
     const prev = el.style.display;
     el.style.setProperty('display', 'none', 'important');
+    el.style.setProperty('pointer-events', 'none', 'important');
     el.dataset.clearviewHidden = '1';
     return prev;
   }
 
   function showEl(el, prev) {
     el.style.display = prev;
+    el.style.removeProperty('pointer-events');
     delete el.dataset.clearviewHidden;
   }
 
@@ -489,6 +691,9 @@
     lastScanTime = now;
     scanScheduled = false;
 
+    // Clean intrusive video overlays first
+    cleanVideoOverlays();
+
     const candidates = scanDocument();
     if (!candidates.length) return;
 
@@ -526,6 +731,22 @@
   function onMutations(mutations) {
     if (!enabled || !settings?.mutationObserver) return;
     if (mutationDepth > 0) return; // recursion guard
+
+    // Fast check: if an anti-adblock banner node was added, clean it immediately
+    for (const m of mutations) {
+      if (m.addedNodes.length > 0) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType === 1) {
+            const txt = (n.innerText || n.textContent || '');
+            if (txt.length < 350 && ANTI_ADBLOCK_TEXT_REGEX.test(txt)) {
+              cleanAntiAdblockBanners();
+              break;
+            }
+          }
+        }
+      }
+    }
+
     if (mutationThrottle) return;
 
     const hasRelevant = mutations.some(m =>
@@ -573,6 +794,22 @@
     }
   });
 
+  // ─── Proactive Hover Video Cleaner ───────────────────────────────────────
+
+  let hoverCleanThrottle = null;
+  document.addEventListener('pointerenter', (e) => {
+    if (!enabled || !settings?.autoCleanup) return;
+    const target = e.target;
+    if (target?.closest && target.closest('video, audio, .jwplayer, .video-js, .plyr, [class*="player" i], [id*="player" i]')) {
+      if (!hoverCleanThrottle) {
+        hoverCleanThrottle = setTimeout(() => {
+          hoverCleanThrottle = null;
+          cleanVideoOverlays();
+        }, 50);
+      }
+    }
+  }, true);
+
   // ─── Settings Load & Apply ────────────────────────────────────────────────
 
   async function loadSettings() {
@@ -602,6 +839,10 @@
 
       case 'TRIGGER_SCAN':
         runScan(true);
+        // Relay scan to all nested frames (e.g. video provider embeds)
+        for (let i = 0; i < window.frames.length; i++) {
+          try { window.frames[i].postMessage({ type: 'CLEARVIEW_TRIGGER_SCAN' }, '*'); } catch {}
+        }
         sendResponse({
           ok: true,
           removedCount,
@@ -641,11 +882,23 @@
     return false;
   });
 
+  // Listen for inter-frame scan trigger (from top frame to video provider frames)
+  window.addEventListener('message', (ev) => {
+    if (ev.data && ev.data.type === 'CLEARVIEW_TRIGGER_SCAN') {
+      runScan(true);
+    }
+  });
+
   // Listen for ad-popup-blocked events dispatched by popup-guardian.js (MAIN world)
   window.addEventListener('clearview:ad-popup-blocked', (e) => {
     if (!enabled || settings?.blockPopups === false) return;
     removedCount++;
     updateBadge();
+    // Notify background script of suspicious popup attempt for tab correlation
+    chrome.runtime.sendMessage({
+      type: 'SUSPICIOUS_POPUP_ATTEMPT',
+      timestamp: Date.now()
+    }).catch(() => {});
     logEvent({
       type: 'blocked_popup',
       domain: getCurrentDomain(),
@@ -663,12 +916,29 @@
       console.log('[ClearView] Domain is allowlisted — skipping.');
       return;
     }
+
+    // Instant sweep on initialization
+    cleanAntiAdblockBanners();
+    cleanVideoOverlays();
+
     if (settings.mutationObserver) startObserver();
-    // Initial scan after a brief delay to let page settle
-    setTimeout(() => runScan(), 800);
+
+    // Fast initial scan passes
+    setTimeout(() => { cleanAntiAdblockBanners(); runScan(); }, 200);
+    setTimeout(() => { cleanAntiAdblockBanners(); runScan(); }, 600);
+    setTimeout(() => { cleanAntiAdblockBanners(); runScan(); }, 1200);
+
+    // Continuous sweep for delayed anti-adblock banners (first 8 seconds)
+    let sweepCount = 0;
+    const initialSweeper = setInterval(() => {
+      sweepCount++;
+      cleanAntiAdblockBanners();
+      if (sweepCount >= 10) clearInterval(initialSweeper);
+    }, 800);
+
     // Also scan on full load
     if (document.readyState !== 'complete') {
-      window.addEventListener('load', () => setTimeout(() => runScan(), 500));
+      window.addEventListener('load', () => setTimeout(() => { cleanAntiAdblockBanners(); runScan(); }, 500));
     }
     // Handle SPA route changes
     let lastHref = location.href;
@@ -682,7 +952,13 @@
     }, 1500);
   }
 
-  init().catch(err => console.error('[ClearView] Init error:', err));
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      init().catch(err => console.error('[ClearView] Init error:', err));
+    });
+  } else {
+    init().catch(err => console.error('[ClearView] Init error:', err));
+  }
 
 })();
 

@@ -232,6 +232,7 @@
   <button class="ctrl" onclick="document.getElementById('article-section').scrollIntoView()">8. Article</button>
   <button class="ctrl" onclick="toggleEl('test-ambiguous')">9. Ambiguous Modal</button>
   <button class="ctrl" onclick="startReinsert()">10. Reinsert Overlay</button>
+  <button class="ctrl" onclick="document.getElementById('test-video-provider-player').scrollIntoView()">14. Video Provider Test</button>
   <button class="ctrl" style="border-color:var(--cyan);color:var(--cyan)" onclick="showAll()">Show All</button>
   <button class="ctrl" onclick="hideAll()">Hide All</button>
 </div>
@@ -299,6 +300,41 @@
   </div>
   <p id="popup-test-log" style="margin-top:14px;font-size:12px;color:var(--cyan);"></p>
 </div>
+
+<hr />
+
+<!-- ── SCENARIO 14: Video Provider Overlay & Popup Bypass ─── -->
+<h2>Scenario 14 — Video Provider Overlay &amp; Popup Bypass <span class="test-label should-remove-label">Overlay Removed</span></h2>
+<p>Simulates video provider clickjacking traps: transparent ad overlays placed over the player and ad triggers on play.</p>
+<div id="test-video-provider-player" class="player-wrapper" style="margin: 20px 0; background: #000; border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 16/9; max-width: 560px;">
+  <video src="" poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='315' viewBox='0 0 560 315'%3E%3Crect fill='%23111' width='560' height='315'/%3E%3Ctext fill='%2300BCD4' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-size='18' font-family='sans-serif'%3EStreaming Video Provider Test%3C/text%3E%3C/svg%3E"></video>
+  <!-- Transparent Ad Overlay covering the video player -->
+  <a id="video-ad-overlay" href="https://onclickads.net/track?id=9928" target="_blank" style="position: absolute; inset: 0; z-index: 1000; opacity: 0; background: transparent; cursor: pointer;"></a>
+  <div class="player-controls">
+    <button id="video-play-btn" onclick="simulateVideoPlay()">▶ Play Video</button>
+    <div class="progress-bar"></div>
+  </div>
+</div>
+<p id="video-test-log" style="font-size:12px;color:var(--cyan);margin-top:6px;"></p>
+
+<hr />
+
+<!-- ── SCENARIO 15: Doodstream Anti-Adblock Banner (Brave Shields Gating) ─── -->
+<h2>Scenario 15 — Doodstream / Video Host Anti-Adblock Banner <span class="test-label should-remove-label">Should Be Removed</span></h2>
+<p>Simulates the exact orange banner and black screen shown when Brave Shields or adblockers trigger anti-adblock detection in Doodstream.</p>
+<div id="test-doodstream-player" class="player-wrapper" style="margin: 20px 0; background: #000; border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 16/9; max-width: 560px;">
+  <video src="" poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='315' viewBox='0 0 560 315'%3E%3Crect fill='%23111' width='560' height='315'/%3E%3Ctext fill='%234CAF50' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-size='18' font-family='sans-serif'%3EVideo Unlocked &amp; Playing%3C/text%3E%3C/svg%3E"></video>
+  <!-- Orange Anti-Adblock Banner across top of video player -->
+  <div id="dood-anti-adblock-banner" style="position: absolute; top: 0; left: 0; right: 0; background-color: #ff9800; color: #fff; padding: 10px 16px; font-weight: 700; text-align: center; font-size: 13px; z-index: 9999;">
+    The publisher doesnt allow adblock, please disable and reload to continue watching!
+  </div>
+  <div class="player-controls">
+    <button>▶</button>
+    <div class="progress-bar"></div>
+  </div>
+</div>
+<button class="ctrl" onclick="testBaitDefuser()">🧪 Test Bait Defuser (Brave Shields Check)</button>
+<p id="bait-test-log" style="font-size:12px;color:var(--cyan);margin-top:6px;"></p>
 
 <hr />
 
@@ -425,10 +461,47 @@
     }
   }
 
+  // Scenario 14: Simulate Video Play Ad Popunder
+  function simulateVideoPlay() {
+    const log = document.getElementById('video-test-log');
+    if (log) log.textContent = 'Calling window.open from video player play button...';
+    try {
+      const res = window.open('https://popunder-ads.com/zone?id=123', '_blank');
+      if (res && res.closed !== false) {
+        if (log) log.textContent = '🛡️ Blocked! ClearView prevented video popup ad from opening.';
+      } else {
+        if (log) log.textContent = '🛡️ Blocked! Popunder intercepted and neutralized.';
+      }
+    } catch (e) {
+      if (log) log.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // Scenario 15: Test Bait Defuser for Brave Shields
+  function testBaitDefuser() {
+    const log = document.getElementById('bait-test-log');
+    const bait = document.createElement('div');
+    bait.className = 'adsbox pub_300x250';
+    bait.style.display = 'none';
+    document.body.appendChild(bait);
+
+    const h = bait.offsetHeight;
+    const canRun = window.canRunAds;
+    bait.remove();
+
+    if (h > 0 && canRun === true) {
+      log.textContent = `🛡️ Defuser Active! Bait offsetHeight=${h}px (spoofed), canRunAds=${canRun}. Anti-adblock check bypassed!`;
+    } else {
+      log.textContent = `⚠️ Defuser inactive. Bait offsetHeight=${h}px, canRunAds=${canRun}.`;
+    }
+  }
+
   // Listen for clearview ad-popup-blocked event
   window.addEventListener('clearview:ad-popup-blocked', (e) => {
     const log = document.getElementById('popup-test-log');
     if (log) log.textContent = `🛡️ ClearView Intercepted Popunder! Reason: ${e.detail.reason} (URL: ${e.detail.url || 'blank'})`;
+    const vLog = document.getElementById('video-test-log');
+    if (vLog) vLog.textContent = `🛡️ ClearView Blocked Video Popup! Reason: ${e.detail.reason}`;
   });
 
   // Lock body scroll (tests Scenario 1 side effect)

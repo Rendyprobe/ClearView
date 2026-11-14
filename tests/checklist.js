@@ -116,6 +116,27 @@ const CHECKLIST = [
     description: 'Buka DevTools → Performance. Aktifkan "10. Reinsert Overlay" selama 30 detik.',
     expected: 'CPU usage content script tidak melebihi 5% secara konsisten.',
     automated: false
+  },
+  {
+    id: 'TC-17',
+    name: 'Popup & overlay clickjacking pada video provider diblokir',
+    description: 'Scroll ke Scenario 14 di test-fixture.html, klik tombol Play atau klik overlay video.',
+    expected: 'Overlay transparan dihapus otomatis, window.open diblokir, dan video play button terlindungi.',
+    automated: false
+  },
+  {
+    id: 'TC-18',
+    name: 'Iframe penyedia video terlindungi (all_frames & match_about_blank)',
+    description: 'Buka situs streaming dengan embed player iframe (misal doodstream/streamtape). Klik video player.',
+    expected: 'Popup tab tidak terbuka, tabunder dicegah, dan playback video berjalan normal tanpa gangguan popunder.',
+    automated: false
+  },
+  {
+    id: 'TC-19',
+    name: 'Doodstream anti-adblock banner & bait check (Brave Shields) didefuse',
+    description: 'Buka Scenario 15 di test-fixture.html atau tonton video Doodstream di browser Brave.',
+    expected: 'Banner oranye dihilangkan, variabel umpan (canRunAds/offsetHeight) tersimulasi aman, dan video player dapat diputar lancar.',
+    automated: false
   }
 ];
 
